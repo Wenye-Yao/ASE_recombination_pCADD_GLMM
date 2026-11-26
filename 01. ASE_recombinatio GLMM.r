@@ -34,53 +34,29 @@ library(lme4)
 
 # 2. Define input and output paths
 # ------------------------------------------------------------------------------
+input_file <- file.path("data","chr1_18.all.sites_individual.recombination.combined")
 
-input_file <- file.path(
-  "data",
-  "chr1_18.all.sites_individual.recombination.combined"
-)
-
-output_dir <- file.path(
-  "results",
-  "01_ASE_recombination"
-)
+output_dir <- file.path("results","01_ASE_recombination")
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-
 # 3. Load and prepare input data
 # ------------------------------------------------------------------------------
-
-ase_data <- read.table(
-  input_file,
-  header = TRUE,
-  sep = "\t",
-  stringsAsFactors = FALSE
-)
+ase_data <- read.table(input_file,header = TRUE,sep = "\t",stringsAsFactors = FALSE)
 
 # Check required input columns
 required_columns <- c("ASE.trait", "Recombination", "Sample")
 
 if (!all(required_columns %in% colnames(ase_data))) {
-  stop("Required columns are missing from the input file.")
-}
+  stop("Required columns are missing from the input file.")}
 
 # Retain valid observations
-ase_data <- subset(
-  ase_data,
-  ASE.trait %in% c("No.ASE", "ASE") &
-    Recombination %in% c("CS", "Normal", "HRR") &
-    !is.na(Sample)
-)
+ase_data <- subset(ase_data, ASE.trait %in% c("No.ASE", "ASE") & Recombination %in% c("CS", "Normal", "HRR") & !is.na(Sample))
 
 # Define the binary response: No.ASE = 0, ASE = 1
-ase_data$ASE.trait <- factor(
-  ase_data$ASE.trait,
-  levels = c("No.ASE", "ASE")
-)
+ase_data$ASE.trait <- factor(ase_data$ASE.trait, levels = c("No.ASE", "ASE"))
 
 ase_data$Sample <- factor(ase_data$Sample)
-
 
 # 4. Define a function for GLMM analysis
 # ------------------------------------------------------------------------------
@@ -92,29 +68,16 @@ fit_glmm <- function(data, comparison, conf_level = 0.95) {
   message("Fitting model: ", comparison)
 
   # Full model: recombination class as a fixed effect
-  full_model <- glmer(
-    ASE.trait ~ Recombination + (1 | Sample),
-    data = data,
-    family = binomial(link = "logit")
-  )
+  full_model <- glmer(ASE.trait ~ Recombination + (1 | Sample), data = data,family = binomial(link = "logit"))
 
   # Null model: random intercept only
-  null_model <- glmer(
-    ASE.trait ~ 1 + (1 | Sample),
-    data = data,
-    family = binomial(link = "logit")
-  )
+  null_model <- glmer(ASE.trait ~ 1 + (1 | Sample),data = data,family = binomial(link = "logit"))
 
   # Likelihood ratio test
   lrt <- anova(null_model, full_model, test = "Chisq")
 
   # Wald confidence intervals for fixed effects
-  conf_int <- confint(
-    full_model,
-    parm = "beta_",
-    level = conf_level,
-    method = "Wald"
-  )
+  conf_int <- confint(full_model,parm = "beta_",level = conf_level,method = "Wald")
 
   # Extract the recombination effect, excluding the intercept
   coef_table <- coef(summary(full_model))
@@ -153,51 +116,22 @@ fit_glmm <- function(data, comparison, conf_level = 0.95) {
 
 # 5. Prepare data for the three recombination comparisons
 # ------------------------------------------------------------------------------
-
 # 5.1 HRR vs CS
 # Reference category: CS
-
-data_HRR_CS <- subset(
-  ase_data,
-  Recombination %in% c("HRR", "CS")
-)
-
-data_HRR_CS$Recombination <- factor(
-  data_HRR_CS$Recombination,
-  levels = c("CS", "HRR")
-)
-
+data_HRR_CS <- subset(ase_data,Recombination %in% c("HRR", "CS"))
+data_HRR_CS$Recombination <- factor(data_HRR_CS$Recombination,levels = c("CS", "HRR"))
 
 # 5.2 Normal vs CS
 # Reference category: CS
-
-data_Normal_CS <- subset(
-  ase_data,
-  Recombination %in% c("Normal", "CS")
-)
-
-data_Normal_CS$Recombination <- factor(
-  data_Normal_CS$Recombination,
-  levels = c("CS", "Normal")
-)
-
+data_Normal_CS <- subset(ase_data, Recombination %in% c("Normal", "CS"))
+data_Normal_CS$Recombination <- factor(data_Normal_CS$Recombination,levels = c("CS", "Normal"))
 
 # 5.3 CS vs combined HRR and Normal regions
 # Reference category: non-CS
 
 data_CS_nonCS <- ase_data
-
-data_CS_nonCS$Recombination <- ifelse(
-  data_CS_nonCS$Recombination == "CS",
-  "CS",
-  "non-CS"
-)
-
-data_CS_nonCS$Recombination <- factor(
-  data_CS_nonCS$Recombination,
-  levels = c("non-CS", "CS")
-)
-
+data_CS_nonCS$Recombination <- ifelse(data_CS_nonCS$Recombination == "CS","CS","non-CS")
+data_CS_nonCS$Recombination <- factor(data_CS_nonCS$Recombination,levels = c("non-CS", "CS"))
 
 # 6. Fit GLMMs for all comparisons
 # ------------------------------------------------------------------------------
@@ -205,40 +139,27 @@ data_CS_nonCS$Recombination <- factor(
 comparison_data <- list(
   HRR_vs_CS = data_HRR_CS,
   Normal_vs_CS = data_Normal_CS,
-  CS_vs_nonCS = data_CS_nonCS
-)
+  CS_vs_nonCS = data_CS_nonCS)
 
 model_results <- lapply(
   names(comparison_data),
-  function(comparison) {
-    fit_glmm(
-      data = comparison_data[[comparison]],
-      comparison = comparison
-    )
-  }
-)
+  function(comparison) {fit_glmm(data = comparison_data[[comparison]],comparison = comparison)})
 
 names(model_results) <- names(comparison_data)
 
-
 # 7. Summarise and export results
 # ------------------------------------------------------------------------------
-
 # Combine statistical results across comparisons
 summary_table <- do.call(
   rbind,
-  lapply(model_results, function(x) x$results)
-)
+  lapply(model_results, function(x) x$results))
 
 rownames(summary_table) <- NULL
 
 print(summary_table)
 
 # Save fitted models and detailed statistical summaries
-saveRDS(
-  model_results,
-  file = file.path(output_dir, "model_results.rds")
-)
+saveRDS(model_results,file = file.path(output_dir, "model_results.rds"))
 
 # Export fixed-effect estimates, odds ratios and confidence intervals
 write.table(
