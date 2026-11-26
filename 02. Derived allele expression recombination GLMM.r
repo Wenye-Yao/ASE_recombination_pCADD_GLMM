@@ -39,11 +39,7 @@ output_dir <- file.path( "results","02_Derived_expression_recombination")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 # 3. Define a function for fitting individual GLMMs
 # ------------------------------------------------------------------------------
-fit_glmm <- function(data,
-                     recombination_comparison,
-                     expression_comparison,
-                     category,
-                     conf_level = 0.95) {
+fit_glmm <- function(data, recombination_comparison,expression_comparison,category,conf_level = 0.95) {
   data <- droplevels(data)
   message( "Fitting model: ", recombination_comparison, " | ", expression_comparison, " | ", category)
 
@@ -66,11 +62,8 @@ fit_glmm <- function(data,
 
   # Extract fixed-effect estimates, excluding the intercept
   coef_table <- coef(summary(full_model))
-
-  terms <- setdiff(
-    rownames(coef_table),
-    "(Intercept)"
-  )
+  
+  terms <- setdiff(rownames(coef_table),"(Intercept)")
 
   # Extract statistical results
   results <- data.frame(
@@ -114,194 +107,71 @@ fit_glmm <- function(data,
 prepare_recombination <- function(data, comparison) {
 
   if (comparison == "HRR_vs_CS") {
-
-    data <- subset(
-      data,
-      Recombination %in% c("CS", "HRR")
-    )
-
-    data$Recombination <- factor(
-      data$Recombination,
-      levels = c("CS", "HRR")
-    )
-
+    data <- subset(data,Recombination %in% c("CS", "HRR"))
+    data$Recombination <- factor(data$Recombination,levels = c("CS", "HRR"))
   } else if (comparison == "Normal_vs_CS") {
-
-    data <- subset(
-      data,
-      Recombination %in% c("CS", "Normal")
-    )
-
-    data$Recombination <- factor(
-      data$Recombination,
-      levels = c("CS", "Normal")
-    )
-
+    data <- subset(data,Recombination %in% c("CS", "Normal"))
+    data$Recombination <- factor(data$Recombination,levels = c("CS", "Normal"))
   } else if (comparison == "HRR_Normal_vs_CS") {
-
-    data <- subset(
-      data,
-      Recombination %in% c("CS", "HRR", "Normal")
-    )
-
+    data <- subset(data,Recombination %in% c("CS", "HRR", "Normal"))
     # Combine HRR and Normal regions
-    data$Recombination <- ifelse(
-      data$Recombination == "CS",
-      "CS",
-      "HRR/Normal"
-    )
-
-    data$Recombination <- factor(
-      data$Recombination,
-      levels = c("CS", "HRR/Normal")
-    )
-
+    data$Recombination <- ifelse(data$Recombination == "CS","CS","HRR/Normal")
+    data$Recombination <- factor(data$Recombination,levels = c("CS", "HRR/Normal"))
   } else {
-
-    stop("Invalid recombination comparison: ", comparison)
-
-  }
-
-  droplevels(data)
-}
-
+    stop("Invalid recombination comparison: ", comparison)}
+  droplevels(data)}
 
 # 5. Define a function to prepare expression comparisons
 # ------------------------------------------------------------------------------
-
 prepare_expression <- function(data, comparison) {
-
   if (comparison == "Over_vs_NoASE") {
-
-    data <- subset(
-      data,
-      ASE.trait %in% c("No.ASE", "overexpress")
-    )
-
-    data$ASE.trait <- factor(
-      data$ASE.trait,
-      levels = c("No.ASE", "overexpress")
-    )
-
+    data <- subset(data,ASE.trait %in% c("No.ASE", "overexpress"))
+    data$ASE.trait <- factor(data$ASE.trait,levels = c("No.ASE", "overexpress"))
   } else if (comparison == "Under_vs_NoASE") {
-
-    data <- subset(
-      data,
-      ASE.trait %in% c("No.ASE", "underexpress")
-    )
-
-    data$ASE.trait <- factor(
-      data$ASE.trait,
-      levels = c("No.ASE", "underexpress")
-    )
-
+    data <- subset(data,ASE.trait %in% c("No.ASE", "underexpress"))
+    data$ASE.trait <- factor(data$ASE.trait,levels = c("No.ASE", "underexpress"))
   } else if (comparison == "NoASE_vs_ASE") {
-
-    data <- subset(
-      data,
-      ASE.trait %in% c(
-        "No.ASE",
-        "overexpress",
-        "underexpress"
-      )
-    )
-
+    data <- subset(data,ASE.trait %in% c("No.ASE","overexpress","underexpress"))
     # Combine overexpression and underexpression into ASE
-    data$ASE.trait <- ifelse(
-      data$ASE.trait == "No.ASE",
-      "No.ASE",
-      "ASE"
-    )
-
+    data$ASE.trait <- ifelse(data$ASE.trait == "No.ASE","No.ASE","ASE")
     # Preserve the original comparison direction:
     # ASE = 0; No.ASE = 1
-    data$ASE.trait <- factor(
-      data$ASE.trait,
-      levels = c("ASE", "No.ASE")
-    )
-
-  } else {
-
-    stop("Invalid expression comparison: ", comparison)
-
-  }
-
-  droplevels(data)
-}
+    data$ASE.trait <- factor(data$ASE.trait,levels = c("ASE", "No.ASE"))} 
+  else {stop("Invalid expression comparison: ", comparison)}
+droplevels(data)}
 
 
 # 6. Define the main analysis function
 # ------------------------------------------------------------------------------
-
 run_models <- function(
     input_data,
     category,
     output_dir,
-    recombination_comparisons = c(
-      "HRR_vs_CS",
-      "Normal_vs_CS",
-      "HRR_Normal_vs_CS"
-    ),
+    recombination_comparisons = c("HRR_vs_CS","Normal_vs_CS","HRR_Normal_vs_CS"),
     conf_level = 0.95) {
-
-  # Standardise the recombination column name
-  if ("recombination" %in% colnames(input_data) &&
-      !"Recombination" %in% colnames(input_data)) {
-
-    colnames(input_data)[
-      colnames(input_data) == "recombination"
-    ] <- "Recombination"
-  }
-
   # Check required input columns
-  required_columns <- c(
-    "Recombination",
-    "ASE.trait",
-    "Sample"
-  )
+  required_columns <- c("Recombination","ASE.trait","Sample")
 
   if (!all(required_columns %in% colnames(input_data))) {
-    stop("Required columns are missing from the input data.")
-  }
+    stop("Required columns are missing from the input data.")}
 
   # Check requested recombination comparisons
-  valid_comparisons <- c(
-    "HRR_vs_CS",
-    "Normal_vs_CS",
-    "HRR_Normal_vs_CS"
-  )
+  valid_comparisons <- c("HRR_vs_CS","Normal_vs_CS","HRR_Normal_vs_CS")
 
   if (!all(recombination_comparisons %in% valid_comparisons)) {
-    stop("Invalid recombination comparison specified.")
-  }
+    stop("Invalid recombination comparison specified.")}
 
   # Retain valid observations
   n_input <- nrow(input_data)
-
   input_data <- subset(
     input_data,
-    Recombination %in% c("CS", "HRR", "Normal") &
-      ASE.trait %in% c(
-        "No.ASE",
-        "overexpress",
-        "underexpress"
-      ) &
-      !is.na(Sample)
-  )
-
-  message(
-    "Excluded observations: ",
-    n_input - nrow(input_data)
-  )
+    Recombination %in% c("CS", "HRR", "Normal") & ASE.trait %in% c("No.ASE","overexpress","underexpress") &!is.na(Sample))
+  message( "Excluded observations: ", n_input - nrow(input_data))
 
   input_data$Sample <- factor(input_data$Sample)
 
   # Define expression comparisons
-  expression_comparisons <- c(
-    "Over_vs_NoASE",
-    "Under_vs_NoASE",
-    "NoASE_vs_ASE"
-  )
+  expression_comparisons <- c("Over_vs_NoASE", "Under_vs_NoASE", "NoASE_vs_ASE")
 
   # Initialise lists for model objects and statistical results
   model_results <- list()
@@ -310,38 +180,20 @@ run_models <- function(
   # Fit models for each recombination comparison
   for (rec_comp in recombination_comparisons) {
 
-    rec_data <- prepare_recombination(
-      data = input_data,
-      comparison = rec_comp
-    )
+    rec_data <- prepare_recombination(data = input_data,
+      comparison = rec_comp)
 
     # Fit models for each expression comparison
     for (expr_comp in expression_comparisons) {
-
-      model_data <- prepare_expression(
-        data = rec_data,
-        comparison = expr_comp
-      )
-
-      model_name <- paste(
-        rec_comp,
-        expr_comp,
-        sep = "__"
-      )
-
+      model_data <- prepare_expression(data = rec_data,comparison = expr_comp)
+      model_name <- paste(rec_comp, expr_comp,sep = "_")
       # Check whether sufficient categories are available
       if (nrow(model_data) == 0 ||
           nlevels(model_data$Recombination) != 2 ||
           nlevels(model_data$ASE.trait) != 2 ||
           nlevels(model_data$Sample) < 2) {
-
-        warning(
-          "Skipping model due to insufficient data: ",
-          model_name
-        )
-
-        next
-      }
+        warning("Skipping model due to insufficient data: ",model_name)
+        next}
 
       # Fit full and null models
       result <- fit_glmm(
@@ -349,74 +201,39 @@ run_models <- function(
         recombination_comparison = rec_comp,
         expression_comparison = expr_comp,
         category = category,
-        conf_level = conf_level
-      )
-
+        conf_level = conf_level)
       model_results[[model_name]] <- result
-
-      result_tables[[model_name]] <- result$results
-    }
-  }
+      result_tables[[model_name]] <- result$results}}
 
   # Check whether any models were successfully fitted
   if (length(result_tables) == 0) {
-    stop("No valid models were fitted.")
-  }
+    stop("No valid models were fitted.")}
 
   # Combine results into a single table
-  summary_table <- do.call(
-    rbind,
-    result_tables
-  )
-
+  summary_table <- do.call(rbind,result_tables)
   rownames(summary_table) <- NULL
-
   # Create a separate output directory for each analysis category
   category_dir <- file.path(output_dir, category)
-
-  dir.create(
-    category_dir,
-    recursive = TRUE,
-    showWarnings = FALSE
-  )
-
+  dir.create(category_dir,recursive = TRUE,showWarnings = FALSE)
   # Save fitted models and detailed statistical summaries
-  saveRDS(
-    model_results,
-    file = file.path(
-      category_dir,
-      "model_results.rds"
-    )
-  )
+  saveRDS(model_results,file = file.path(category_dir,"model_results.rds"))
 
   # Export statistical results for downstream analysis and plotting
-  write.table(
-    summary_table,
-    file = file.path(
-      category_dir,
-      "model_summary.tsv"
-    ),
-    sep = "\t",
-    quote = FALSE,
-    row.names = FALSE
-  )
+  write.table(summary_table,file = file.path(category_dir,"model_summary.tsv"),sep = "\t",quote = FALSE,row.names = FALSE)
 
   # Record R and package versions
-  writeLines(
-    capture.output(sessionInfo()),
-    con = file.path(
-      category_dir,
-      "sessionInfo.txt"
-    )
-  )
+  writeLines(capture.output(sessionInfo()),con = file.path(category_dir,"sessionInfo.txt"))
 
   message("Analysis completed: ", category)
 
   # Return model objects and statistical results
-  invisible(
-    list(
-      models = model_results,
-      summary = summary_table
-    )
-  )
-}
+  invisible(list(models = model_results,summary = summary_table))}
+
+##Example of running this mode
+ase_data <- read.table(file.path("data","derived_allele_recombination.tsv"), header = T, sep="\t", stringsAsFactors = F)
+##Run all three recombination comparision
+result_all <- run_models(input_data = ase_data), category = "All sites" , output_dir = output_dir, conf_level = 0.95)
+
+##plot data
+plot_data <- result_all$summary
+
